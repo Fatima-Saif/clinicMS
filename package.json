@@ -1,0 +1,68 @@
+{
+  "name": "clinicms",
+  "version": "1.2.20",
+  "description": "Clinical Management System ported from C++ to Node.js",
+  "main": "main.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "electron": "electron .",
+    "build": "electron-builder --win"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "jsdom": "^30.0.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "nodemailer": "^9.0.3",
+    "pngjs": "^7.0.0",
+    "puppeteer": "^25.8.0",
+    "puppeteer-core": "^25.3.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^26.15.3"
+  },
+  "keywords": [
+    "clinic",
+    "management",
+    "system",
+    "sqlite",
+    "express",
+    "electron"
+  ],
+  "author": "Fatima",
+  "license": "MIT",
+  "build": {
+    "directories": {
+      "output": "C:/temp/clinicms-dist"
+    },
+    "appId": "com.clinicmanagementsystem.app",
+    "asar": true,
+    "productName": "Atta Homeopathic Clinic",
+    "files": [
+      "**/*",
+      "!dist",
+      "!node_modules/.cache",
+      "!clinic.db",
+      "!tests",
+      "!docs"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Atta Homeopathic Clinic"
+    }
+  }
+}
