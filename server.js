@@ -5,8 +5,9 @@ const os = require('os');
 const fs = require('fs');
 const Database = require('./database');
 
-// Base storage path: Environment variable > User Documents (if exists) > Local ./data directory
+// Base storage path: Vercel serverless > Environment variable > User Documents > Local ./data directory
 function getStoragePath() {
+  if (process.env.VERCEL) return '/tmp';
   if (process.env.DATA_DIR) return process.env.DATA_DIR;
   try {
     const userDocs = path.join(os.homedir(), 'Documents');
@@ -21,10 +22,14 @@ const documentsPath = getStoragePath();
 const uploadsDir = path.join(documentsPath, 'uploads');
 const dbDir = path.join(documentsPath, 'database');
 
-// Ensure directories exist
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-if (!fs.existsSync(path.join(uploadsDir, 'patient-photos'))) fs.mkdirSync(path.join(uploadsDir, 'patient-photos'), { recursive: true });
-if (!fs.existsSync(path.join(uploadsDir, 'defected-area-photos'))) fs.mkdirSync(path.join(uploadsDir, 'defected-area-photos'), { recursive: true });
+// Ensure directories exist safely
+try {
+  if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+  if (!fs.existsSync(path.join(uploadsDir, 'patient-photos'))) fs.mkdirSync(path.join(uploadsDir, 'patient-photos'), { recursive: true });
+  if (!fs.existsSync(path.join(uploadsDir, 'defected-area-photos'))) fs.mkdirSync(path.join(uploadsDir, 'defected-area-photos'), { recursive: true });
+} catch (err) {
+  console.warn('Storage directory setup notice:', err.message);
+}
 
 function saveBase64Image(base64Str, subfolder, prefix) {
   if (!base64Str || !base64Str.startsWith('data:image/')) return base64Str;
@@ -48,6 +53,18 @@ function saveBase64Image(base64Str, subfolder, prefix) {
 
 const app = express();
 const db = new Database();
+
+// Middleware to ensure DB promise completes on Vercel Serverless
+app.use(async (req, res, next) => {
+  if (app.dbPromise) {
+    try {
+      await app.dbPromise;
+    } catch (e) {
+      console.error('[Middleware] Database initialization wait error:', e);
+    }
+  }
+  next();
+});
 
 // Enable Cross-Origin Resource Sharing (CORS)
 app.use(cors());
@@ -1135,17 +1152,30 @@ app.post('/api/settings', async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 
-// Always use the Documents folder for database to prevent data loss
+// Database path configuration
 let dbPath = path.join(dbDir, 'clinic.db');
+if (process.env.VERCEL) {
+  dbPath = '/tmp/clinic.db';
+  const rootDb = path.join(__dirname, 'clinic.db');
+  if (!fs.existsSync(dbPath) && fs.existsSync(rootDb)) {
+    try {
+      fs.copyFileSync(rootDb, dbPath);
+      console.log('[Vercel] Successfully initialized /tmp/clinic.db from project root database.');
+    } catch (e) {
+      console.error('[Vercel] Error initializing /tmp/clinic.db:', e.message);
+    }
+  }
+}
 
 async function startServer() {
   const errObj = {};
   const opened = await db.open(dbPath, errObj);
   if (!opened) {
     console.error(`[Error] Failed to open SQLite database at ${dbPath}:`, errObj.message);
-    process.exit(1);
+    // Don't crash process exit in serverless environment
+    if (!process.env.VERCEL) process.exit(1);
   }
-  console.log(`[Database] Connected to SQLite database at: ${dbPath} FROM FILE: ${__filename}`);
+  console.log(`[Database] Connected to SQLite database at: ${dbPath}`);
 
   // Only listen directly if run as a standalone process (node server.js)
   if (require.main === module) {
